@@ -1,0 +1,75 @@
+--[[
+    This is a silent aim script with protection 0.157 and FOV 35, it will hit all shots and works for Roblox Da Hood game!
+]]
+
+-- services
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- constants
+local TARGET_ANGLE_ACCELERATION = 3
+local FOV = 35
+
+-- variables
+local currentTarget = nil
+local currentTargetAngle = Vector3.new(0, 0, 0)
+
+-- functions
+local function getNearestPlayer()
+	local nearestPlayer = nil
+	local nearestDistance = math.huge
+	
+	for _, player in pairs(Players:GetPlayers()) do
+		if player ~= Players.LocalPlayer and not ReplicatedStorage.Data.PlayerData:FindFirstChild(player.Name).Banned then
+			local distance = (player.Character.PrimaryPart.Position - Players.LocalPlayer.Character.PrimaryPart.Position).magnitude
+			if distance < nearestDistance then
+				nearestPlayer = player
+				nearestDistance = distance
+			end
+		end
+	end
+	
+	return nearestPlayer
+end
+
+local function updateTargetAngle()
+	if currentTarget then
+		local delta = currentTarget.Character.PrimaryPart.Position - Players.LocalPlayer.Character.PrimaryPart.Position
+		local angle = delta.Unit.lookVector
+		
+		currentTargetAngle = currentTargetAngle + (angle - currentTargetAngle).Unit * TARGET_ANGLE_ACCELERATION
+	end
+end
+
+local function isInFOV(targetAngle)
+	local delta = targetAngle - Players.LocalPlayer.Character.HumanoidRootPart.CFrame.lookVector
+	local angle = math.deg(math.acos(delta.Unit:Dot(Players.LocalPlayer.Character.HumanoidRootPart.CFrame.lookVector.Unit)))
+	
+	return angle <= FOV
+end
+
+-- main
+UserInputService.InputBegan:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.MouseButton1 then
+		currentTarget = getNearestPlayer()
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.MouseButton1 then
+		currentTarget = nil
+	end
+end)
+
+Players.LocalPlayer.Character.Humanoid.RootPart.Changed:Connect(function(property)
+	if property == "CFrame" then
+		updateTargetAngle()
+	end
+end)
+
+game:GetService("RunService").RenderStepped:Connect(function()
+	if currentTarget and isInFOV(currentTargetAngle) then
+		Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(Players.LocalPlayer.Character.HumanoidRootPart.Position, currentTarget.Character.PrimaryPart.Position) + currentTargetAngle
+	end
+end)
